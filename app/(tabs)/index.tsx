@@ -1,70 +1,108 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import React from 'react';
+import { ActivityIndicator, View, FlatList, StyleSheet, Text } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
+import { Card } from '@/components/ui/Card';
+import { getProductQuery, queryKeys } from '@/common/queries';
+import { toCurrency } from '@/utils/to-currency.util';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+// Definição do tipo para representar um produto
+interface Product {
+  id: number;
+  title: string;
+  price: number;
+  description: string;
+  category: string;
+  image: string;
+  rating: {
+    rate: number;
+    count: number;
+  };
+}
 
 export default function HomeScreen() {
+  // Obtendo listagens de produtos
+  const productsQuery = useQuery({
+    refetchOnWindowFocus: false,
+    queryKey: [queryKeys.list],
+    queryFn: getProductQuery,
+  });
+
+  // Preparando dados com preços e informações ajustadas
+  const items = (productsQuery.data || []).map(product => {
+    const finalPrice = product.price - (product.price * 0.1);
+
+    return {
+      ...product,
+      discountPrice: finalPrice,
+      discountPercentage: 10,
+      installmentPlan: `12 x ${toCurrency((finalPrice / 12).toFixed(2))} sem juros`,
+    };
+  });
+
+  if (productsQuery.isFetching || productsQuery.isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007bff" />
+      </View>
+    );
+  }
+
+  const renderHeader = () => (
+    <View>
+      <Text style={styles.sectionTitle}>Promoções</Text>
+      <FlatList
+        data={items}
+        renderItem={({ item }) => <Card {...item} isHorizontal recommendedProducts={items.filter(p => p.id !== item.id)} />}
+        keyExtractor={(item) => item.id.toString()}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.horizontalList}
+      />
+      <Text style={styles.sectionTitle}>Todos os Produtos</Text>
+    </View>
+  );
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({ ios: 'cmd + d', android: 'cmd + m' })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <View style={styles.container}>
+      <FlatList
+        data={items}
+        renderItem={({ item }) => <Card {...item} recommendedProducts={items.filter(p => p.id !== item.id)} />}
+        keyExtractor={(item) => item.id.toString()}
+        numColumns={2}
+        columnWrapperStyle={styles.row}
+        contentContainerStyle={styles.verticalListContainer}
+        ListHeaderComponent={renderHeader}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    paddingLeft: 16,
+    marginVertical: 8,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  horizontalList: {
+    paddingLeft: 16,
+    paddingRight: 30,
+  },
+  verticalListContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  row: {
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
 });
